@@ -1,0 +1,16 @@
+---
+- name: "Workaround: Not able to login to Ansible Automation Platform via HTTP Connection [https://access.redhat.com/solutions/3635571]"
+  hosts: "automationcontroller"
+  become: true
+  tasks:
+    - name: "Create custom.py config file"
+      ansible.builtin.blockinfile:
+        path: "/etc/tower/conf.d/custom.py"
+        create: true
+        block: |
+          SESSION_COOKIE_SECURE = False
+          CSRF_COOKIE_SECURE = False
+
+    - name: "Restarting the Ansible Automation Platform 2.x services on all the Controller nodes"
+      ansible.builtin.command: "automation-controller-service restart"
+...
