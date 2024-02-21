@@ -1,15 +1,60 @@
 ---
-- name: "Workaround: Not able to login to Ansible Automation Platform via HTTP Connection [https://access.redhat.com/solutions/3635571]"
+- name: "AAP workarounds"
   hosts: "automationcontroller"
+  gather_facts: false
   become: true
+  vars:
+    not_able_to_login_when_nginx_disable_https_equals_true:
+      vars: |
+        SESSION_COOKIE_SECURE = False
+        CSRF_COOKIE_SECURE = False
+      enabled: true
+    config_proxy_support_rhaap:
+      vars: |
+        REMOTE_HOST_HEADERS = ['HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR', 'REMOTE_HOST']
+        USE_X_FORWARDED_PORT = True
+        USE_X_FORWARDED_HOST = True
+        CSRF_TRUSTED_ORIGINS = ['https://LB_FRONTEND_ADDRESS']
+      enabled: true
+    config_automatic_discovery_controller_nodes:
+      vars: |
+        BROADCAST_WEBSOCKET_PROTOCOL = 'http'
+        BROADCAST_WEBSOCKET_PORT = 80
+        BROADCAST_WEBSOCKET_VERIFY_CERT = False
+      enabled: true
   tasks:
-    - name: "Create custom.py config file"
+    - name: "Workaround for: Not able to login to Ansible Automation Platform via HTTP Connection [https://access.redhat.com/solutions/3635571]"
+      when:
+       - not_able_to_login_when_nginx_disable_https_equals_true['enabled']
       ansible.builtin.blockinfile:
         path: "/etc/tower/conf.d/custom.py"
         create: true
+        marker_begin: "BEGIN - SOLUTION: 363557 -"
+        marker_end: "END - SOLUTION: 363557 -"
         block: |
-          SESSION_COOKIE_SECURE = False
-          CSRF_COOKIE_SECURE = False
+          {{ not_able_to_login_when_nginx_disable_https_equals_true['vars'] }}
+
+    - name: "Workaround for: Configuring proxy support for Red Hat Ansible Automation Platform"
+      when:
+       - config_proxy_support_rhaap['enabled']
+      ansible.builtin.blockinfile:
+        path: "/etc/tower/conf.d/custom.py"
+        create: true
+        marker_begin: "BEGIN - SOLUTION: PROXY SUPPORT -"
+        marker_end: "END - SOLUTION: PROXY SUPPORT -"
+        block: |
+          {{ config_proxy_support_rhaap['vars'] }}
+
+    - name: "Workaround for: Configuring automation controller websocket connections"
+      when:
+       - config_automatic_discovery_controller_nodes['enabled']
+      ansible.builtin.blockinfile:
+        path: "/etc/tower/conf.d/custom.py"
+        create: true
+        marker_begin: "BEGIN - SOLUTION: WEBSOCKET CONFIG -"
+        marker_end: "END - SOLUTION: WEBSOCKET CONFIG -"
+        block: |
+          {{ config_automatic_discovery_controller_nodes['vars'] }}
 
     - name: "Restarting the Ansible Automation Platform 2.x services on all the Controller nodes"
       ansible.builtin.command: "automation-controller-service restart"
